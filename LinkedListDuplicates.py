@@ -17,7 +17,7 @@ def remove_dups_ht(head):
     prev = None
 
     hashmap = {}
-    while(node is not None):
+    while(node):
         if (hashmap.get(node.value)):
 
             # remove this node
@@ -36,10 +36,10 @@ def remove_dups_ht(head):
 def remove_dups_rnr(head):
     node = head
 
-    while(node is not None):
+    while(node):
         runner = node.next
 
-        while(runner is not None):
+        while(runner):
             if (runner.value == node.value):
                 prev.next = runner.next
             else:
@@ -55,7 +55,7 @@ def remove_dups_rnr(head):
 
 def print_list(head):
     values = []
-    while(head is not None):
+    while(head):
         values.append(str(head.value))
         head = head.next
 
@@ -65,18 +65,16 @@ def init_list(values):
     head = None
     node = None
 
-    for i in range(len(values)):
-        if (i == 0):
-            head = ListNode(values[i])
-            node = head
-        else:
-            node.next = ListNode(values[i])
-            node = node.next
+    head = node = ListNode(0)
+
+    for value in values:
+        node.next = ListNode(value)
+        node = node.next
 
     # Print
     print_list(head)
 
-    return head
+    return head.next
 
 
 
