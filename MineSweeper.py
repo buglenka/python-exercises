@@ -6,6 +6,7 @@
 """
 import datetime
 
+from enum import Enum
 from random import randint
 from collections import deque
 
@@ -14,112 +15,223 @@ INTERMEDIATE = 2
 EXPERT = 3
 
 SETTINGS = {
-    BEGINNER: {'size': 8, 'mines': 10 },
-    INTERMEDIATE: {'size': 16, 'mines': 40 },
-    EXPERT: {'size': 32, 'mines': 99 },
+    BEGINNER: {'size': 8, 'count': 10 },
+    INTERMEDIATE: {'size': 16, 'count': 40 },
+    EXPERT: {'size': 32, 'count': 99 },
 }
 
-NEIGHB_DIFF = [ (-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1) ]
+class AlreadyOpened(Exception):
+    def __init__(self):
+        super().__init__()
 
-# Marks for the fields value
-FV_EMPTY = 0
-FV_MINE = 9
-FV_EXPLODED = 10
+class AlreadyMarked(Exception):
+    def __init__(self):
+        super().__init__()
 
-# Marks for print field
-FP_EMPTY = ' '
-FP_MINE = 'х'
-FP_HIDDEN = '-'
-FP_EXPLODED = 'ж'
-FP_MARKED = 'M'
+class Status(Enum):
+    CLOSED = 0
+    OPENED = 1
+    MARKED = 2
 
-# Marks for cells
-FC_UNCHECKED = 0
-FC_CHECKED = 1
-FC_MARKED = 2
+class Cell(object):
+    """Cell
 
+    Base cell which doesn't have any value.
 
-class Game(object):
-    """Game
-
+    It can be marked as:
+      '-': closed cell
+      'M': marked as a mine
+      ' ': opened cell
     """
-    def __init__(self, gameLevel):
-        self._startTimestamp = datetime.datetime.now()
-        self._endTimestamp = None
-        self._finished = False
-  
-        size = SETTINGS[gameLevel]['size']
-        mines = SETTINGS[gameLevel]['mines']
 
-        self._field = Field(size, mines)
+    _VIEWS = {
+        Status.CLOSED: '-',
+        Status.OPENED: ' ',
+        Status.MARKED: 'M',
+    }
 
-    def isFinished(self):
-        return self._finished
+    def __init__(self):
+        self._status = Status.CLOSED
 
-    def action(self, x, y, mark = False):
-        if mark:
-            self._field.mark(x, y)
+    def isOpened(self):
+        return (self._status is Status.OPENED)
+
+    def isMarked(self):
+        return (self._status is Status.MARKED)
+
+    def show(self):
+        if self.isOpened(): return
+
+        self._status = Status.OPENED # show
+
+    def open(self):
+        """Open cell
+
+        Incapsulates the internal method _open().
+
+        Exceptions:
+          - AlreadyOpened: Try to open already opened cell 
+          - AlreadyMarked: Try to open cell marked as a mine
+        """
+        if self.isOpened():
+            raise AlreadyOpened()
+
+        if self.isMarked():
+            raise AlreadyMarked()
+
+        self._status = Status.OPENED
+
+    def mark(self):
+        """Mark/Unmark the cell
+
+        Exceptions:
+          - AlreadyOpened: Try to mark already opened cell
+        """
+        if self.isOpened():
+            raise AlreadyOpened()
+
+        if self._status is Status.CLOSED:
+            self._status = Status.MARKED
         else:
-            self._field.check(x, y)
+            self._status = Status.CLOSED
 
-        if self._field.isMineExploded() or self._field.isAllDone():
-            self._finished = True
-            self._endTimestamp = datetime.datetime.now()
+    def __str__(self):
+        return Cell._VIEWS[self._status]
 
-        self._field.status()
+class Number(Cell):
+    """Number cell
 
+    Cell which indicated a number neightbouring cells
+    with mines.
 
-    def result(self):
-        """Print the result of the game
+    Neighbouring cells marked as 1:
+      1 1 1
+      1 * 1
+      1 1 1 
+
+    Numbers can be [0, 8]. 
+    These cells will be initialized with proper numbers
+    after the mines installed.
+
+    It can be marked as 'N', where N - is a number.
+    """
+
+    # Differences to calculate neighbours of cell
+    DXDY = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)]
+
+    def __init__(self):
+        super().__init__()
+
+        self._value = 0
+
+    def adjust(self):
+        """Adjust the number
+
+        This method is called during initialization of number cells
+        around mines.
         """
 
-        if (not self.isFinished()):
-            print('Game is in progress.')
-            return
+        self._value += 1
 
-        if self._field.isMineExploded():
-            print('One of the mines exploded!')
-        else:
-            print('You win!')
+    def __str__(self):
+        # Rewrite view if cell is opened
+        if self.isOpened():
+            return str(self._value)
 
-        print('Game duration: {}'.format(self._endTimestamp - self._startTimestamp))
+        return super().__str__()
 
-class Field(object):
-    """Field
+class MineStatus(Enum):
+    INSTALLED = 0
+    EXPLODED = 1
+    FOUND = 2
 
-    Represents field with mines.
+class Mine(Cell):
+    """Mine cell
 
-    Levels:
-      - Beginner: 8x8, 10 mines
-      - Intermediate: 16x16, 40 mines
-      - Expert: 32x32, 99 mines
+    It can be printed as:
+      - 'x': installed and marked mine
+      - 'X': installed and not marked mine
+      - 'Ж': exploded mine
+      - views from base class
     """
 
-    def __init__(self, size, mines):
-        self._size = size
-        self._mineCount = mines
-        self._mineMarked = 0
-        self._mineList = []
-        self._mineExploded = False
-        self._cellsChecked = 0
+    _MINE_VIEWS = {
+        MineStatus.INSTALLED: 'X',
+        MineStatus.EXPLODED: 'Ж',
+        MineStatus.FOUND: 'x',
+    }
 
-        # Create empty map
-        self._initMap()
-        
+    def __init__(self):
+        super().__init__()
+     
+        self._mineStatus = MineStatus.INSTALLED
+
+    def open(self):
+        """Open mine cell
+
+        Rewrites the base class method.
+
+        Changes mine status.
+        """
+        super().open()
+
+        self._mineStatus = MineStatus.EXPLODED
+
+    def mark(self):
+        """Mark cell as mine
+
+        Rewrites the base class method.
+
+        Changes mine status.
+        """
+        super().mark()
+
+        if self.isMarked():
+            self._mineStatus = MineStatus.FOUND
+        else:
+            self._mineStatus = MineStatus.INSTALLED
+
+    def __str__(self):
+        # Rewrites view if mine is opened
+        if self.isOpened():  
+            return Mine._MINE_VIEWS[self._mineStatus]
+
+        return super().__str__()
+
+
+class IndexOutOfBounds(Exception):
+    def __init__(self):
+        pass
+
+class MineExploded(Exception):
+    def __init__(self):
+        pass
+
+class Field(object):
+    """Mine field 'size' x 'size' with 'count' mines
+
+    Represents field with mines, methods to install, open
+    and mark the cells.
+    """
+
+    def __init__(self, mode):
+        size = SETTINGS[mode]['size']
+        count = SETTINGS[mode]['count']
+
+        self._size = size
+        self._mineCount = count
+        self._mineMarked = 0
+        self._mineCoords = [] # for quicker search of mines
+        self._openedCount = 0
+
+        # Initialize with empty cells for now
+        self._cells = [[ Cell() for col in range(size)] for row in range(size) ]
+
         # Set the mines randomly
         self._placeMines()
 
         # Set the numbers around mines
         self._placeNumbers()
-
-        # Print True for debug
-        self.status(False)
-
-    def _initMap(self):
-        size = self._size
-
-        self._mineMap = [[FV_EMPTY for col in range(size)] for row in range(size)]
-        self._checked = [[FC_UNCHECKED for col in range(size)] for row in range(size)]
 
     def _placeMines(self):
         maxIdx = self._size - 1
@@ -129,114 +241,16 @@ class Field(object):
             x = randint(0, maxIdx)
             y = randint(0, maxIdx)
 
-            if (self._mineMap[x][y] == FV_MINE): continue
+            if (type(self._cells[x][y]) is Mine): continue
 
-            self._mineMap[x][y] = FV_MINE
-            self._mineList.append((x, y))        
+            self._cells[x][y] = Mine()
+
+            self._mineCoords.append((x, y))
 
             minePlaced += 1
 
-    def _adjustNumber(self, x, y):
-        if (not self._checkIdxs(x, y)) or (self._mineMap[x][y] == FV_MINE): return
-
-        self._mineMap[x][y] += 1
-
-    def _placeNumbers(self):
-        for x, y in self._mineList:
-            for dx, dy in NEIGHB_DIFF:
-                self._adjustNumber(x+dx, y+dy)
-
-    def status(self, showUnchecked = False):
-        """Print all cells, mines left, game duration"""
-
-        print('Field:')
-
-        # Show the initial field values if mine exploded
-        if (self.isMineExploded()):
-            showUnchecked = True
-
-        for y in range(self._size):
-            xs = []
-
-            for x in range(self._size):
-                if (not showUnchecked) and (self._checked[x][y] == FC_UNCHECKED):
-                    xs.append(FP_HIDDEN)
-                    continue
-
-                # Show the initial field values if mine exploded
-                if (self._checked[x][y] == FC_MARKED) and (not self.isMineExploded()):
-                    xs.append(FP_MARKED)
-                elif (self._mineMap[x][y] == FV_MINE):
-                    xs.append(FP_MINE)
-                elif(self._mineMap[x][y] == FV_EMPTY):
-                    xs.append(FP_EMPTY)
-                elif(self._mineMap[x][y] == FV_EXPLODED):
-                    xs.append(FP_EXPLODED)
-                else:
-                    xs.append(str(self._mineMap[x][y]))
-
-            print(" ".join(xs))
-
-        print('Mines left: {}'.format(self._mineCount - self._mineMarked))
-
-    def check(self, x, y):
-        """Check the specified cell
-        """
-        if not self._checkIdxs(x, y):
-            print('At least one index is out of the boundaries!')
-            return
-    
-        if (self._checked[x][y] == FC_CHECKED):
-            print('This cell is already checked!')
-            return
-
-        if (self._checked[x][y] == FC_MARKED):
-            print('This cell is marked as mine!')
-            return
-
-        self._checked[x][y] = True
-
-        if (self._mineMap[x][y] == FV_MINE):
-            self._mineExploded = True
-            self._mineMap[x][y] = FV_EXPLODED
-            return
-
-        if (self._mineMap[x][y] == FV_EMPTY):
-            self._checkNeighbours(x, y)
-
-    def _checkNeighbours(self, x, y):
-        queue = deque()
-        queue.append((x, y))
-
-        while queue:
-           _x, _y = queue.popleft()
-
-           for dx, dy in NEIGHB_DIFF:
-                X, Y = _x+dx, _y+dy
-
-                if (not self._checkIdxs(X, Y)): continue
-
-                if (self._checked[X][Y] != FC_UNCHECKED): continue
- 
-                if (self._mineMap[X][Y] == FV_EMPTY):
-                    self._checked[X][Y] = FC_CHECKED
-                    queue.append((X, Y))
-
-                elif (self._mineMap[X][Y] < FV_MINE): # Number
-                    self._checked[X][Y] = FC_CHECKED                
-
-    def isMineExploded(self):
-        return self._mineExploded
-
-    def isAllDone(self):
-        if (self._cellsChecked == self._size*self._size) and \
-           (self._mineCount == self._mineMarked):
-            return True
-
-        return False
-
     def _checkIdxs(self, x, y):
-        """Check the values of indexes
+        """Check the values of indeces
 
         If values are out of the boundaries returns False.
         """
@@ -250,24 +264,141 @@ class Field(object):
 
         return True
 
-    def mark(self, x, y):
-        """Mark or unmark cell with mine
+    def _placeNumbers(self):
+        for x, y in self._mineCoords: # Set the number around each mine
+            for dx, dy in Number.DXDY:
+                X, Y = x+dx, y+dy
+
+                # Calculated indeces can be out of the boundaries
+                # for example for x = 0 or y = size - 1
+                if not self._checkIdxs(X, Y): continue
+
+                if (type(self._cells[X][Y]) is Mine): continue
+ 
+                if (type(self._cells[X][Y]) is Cell):
+                    self._cells[X][Y] = Number()
+
+                self._cells[X][Y].adjust()
+
+    def isCompleted(self):
+        """All field is opened
+     
+        Returns True if all field is opened and all mines are
+        correctly marked.
         """
+        if (self._mineCount == self._mineMarked) and \
+           (self._openedCount == (self._size*self._size - self._mineCount)):
+            return True
 
-        if not self._checkIdxs(x, y): 
-            print('At least one index is out of the boundaries!')
-            return
+        return False
 
-        if (self._checked[x][y] == FC_CHECKED):
-            print('The cell is already checked and can\'t be markded as Mine.')
-            return
+    def mark(self, x, y):
+        """Mark/Unmark cell as mine
 
-        if (self._checked[x][y] == FC_UNCHECKED):
+        Exceptions:
+          - IndexOutOfBounds: specified index is out of the boundaries.
+          - AlreadyOpened: Try to mark already opened cell.
+        """
+        if not self._checkIdxs(x, y):
+            raise IndexOutOfBounds()
+
+        self._cells[x][y].mark()
+
+        # Count
+        if self._cells[x][y].isMarked():
             self._mineMarked += 1
-            self._checked[x][y] = FC_MARKED
         else:
             self._mineMarked -= 1
-            self._checked[x][y] = FC_UNCHECKED
+
+    def open(self, x, y):
+        """Open cell with coordinates 'x' and 'y'
+
+        Exceptions:
+          - IndexOutOfBounds: specified index is out of the boundaries.
+          - MineExploded: Raised when mine exploded.
+          - AlreadyOpened: Try to open already opened cell.
+          - AlreadyMarked: Try to open cell marked as a mine.
+        """
+        if not self._checkIdxs(x, y):
+            raise IndexOutOfBounds()
+
+        self._cells[x][y].open()
+
+        # Store the number of opened cells
+        self._openedCount += 1
+
+        # If specified cell was a mine, it exploded
+        if (type(self._cells[x][y]) is Mine):
+            raise MineExploded()
+
+        # If specified cell is empty, need to open 
+        # neighbouring cells
+        if (type(self._cells[x][y]) is Cell):
+            self._openNeighbours(x, y)
+
+    def _openNeighbours(self, x, y):
+        queue = deque()
+        queue.append((x, y))
+
+        while queue:
+           _x, _y = queue.popleft()
+
+           for dx, dy in Number.DXDY:
+                X, Y = _x+dx, _y+dy
+
+                if (not self._checkIdxs(X, Y)): continue
+
+                if (self._cells[X][Y].isOpened() or self._cells[X][Y].isMarked()): continue
+
+                if type(self._cells[X][Y]) is Mine: continue
+
+                # Store the number of opened cells
+                self._openedCount += 1
+
+                if (type(self._cells[X][Y]) is Cell):
+                    queue.append((X, Y))
+
+                self._cells[X][Y].open()
+
+    def show(self):
+        for x in range(self._size):
+            for y in range(self._size):
+                self._cells[x][y].show()
+
+        self.status()
+
+    def status(self):
+        """Status of cells
+
+        """
+        COLSIZE = 3
+
+        print('Field:')
+
+        # First row is column numbers
+        xs = [''.rjust(COLSIZE)]
+        for y in range(self._size):
+            xs.append(str(y).rjust(COLSIZE))
+        print(''.join(xs))
+
+        # Underline the field heading
+        xs = [''.rjust(COLSIZE)]
+        xs.extend(['-'] * COLSIZE * self._size)
+        print(''.join(xs))
+
+        # Print values
+        for y in range(self._size):
+            xs = [ '{}|'.format(y).rjust(COLSIZE) ] # First value is the number of row
+
+            for x in range(self._size):
+                xs.append(str(self._cells[x][y]).rjust(COLSIZE))
+
+            print(''.join(xs))
+
+        print('Mines left: {}'.format(self._mineCount - self._mineMarked))
+
+# Store the time of start to mesure the duration of the game
+StartTimestamp = datetime.datetime.now()
 
 # Print ptions to start game and read the input
 level = None
@@ -277,32 +408,63 @@ while(True):
     except ValueError:
         print("Not a valid number.")
 
-    if (level > 0) and (level < 4):
-        break
-    print("Invalid number.")
-
-game = Game(level)
-
-while not game.isFinished():
-    answer = input('Do you want to mark/unmark the cell as mine? (y/n): ')
-
-    mark = False
-    message = 'Enter the coordinates to check (x y): '
-     
-    if (answer not in ['y', 'n']):
-        print('Enter the valid answer!')
+    if (level < 1) or (level > 3):
+        print("Invalid number.")
         continue
-    elif (answer is 'y'):
-        mark = True
-        message = 'Enter the coordinates to mark/ummark mine (x y): '
+
+    break
+
+# Create game field and print the initial status
+field = Field(level)
+field.status()
+
+# Opening cells
+while not field.isCompleted():
+    command = input('Print command like \'m x y\' (mark cell as mine) or \'o x y\' (open cell): ')
+
+    s = command.split()
+
+    if len(s) != 3:
+        print('Enter a valid command!')
+        continue
+
+    if s[0].lower().strip() not in ['m','o']:
+        print('The first letter should be \'O\'(open cell) or \'M\'(mark cell as mine.)')
+        continue
+
+    markCell = False
+    if (s[0].lower().strip() == 'm'):
+        markCell = True
+
+    x = y = 0    
+    try:
+        x = int(s[1])
+        y = int(s[2])
+    except ValueError:
+        print('Enter a valid numbers!')
+        continue
 
     try:
-        x, y = map(int, input(message).split())
-    except ValueError:
-        print("Not a valid numbers.")
+        if markCell:
+            field.mark(x, y)
+        else:
+            field.open(x, y)
 
-    game.action(x, y, mark)
+        field.status()
+    except IndexOutOfBounds:
+        print('At least one index is out of the boundaries.')
+        continue
+    except AlreadyOpened:
+        print('This cell is already opened.')
+        continue
+    except AlreadyMarked:
+        print('This cell is already marked.')
+        continue
+    except MineExploded:
+        print('Mine EXPLODED!!!')
+        field.show()
+        break
 
 # Result of the Game
-game.result()
+print('Game duration: {}'.format(datetime.datetime.now() - StartTimestamp))
 
