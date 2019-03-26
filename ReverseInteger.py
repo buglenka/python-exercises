@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 """Reverse Integer (https://leetcode.com/problems/reverse-integer/description/)
