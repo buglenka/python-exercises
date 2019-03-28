@@ -1,37 +1,31 @@
 #!/usr/bin/awk -f
 
 {
-  split($0, IPv4_PARTS, ".")
-  split($0, IPv6_PARTS, ":")
+  # IPv4 validation
+  if ($0 ~ /^[[:digit:]]{1,3}(\.[[:digit:]]{1,3}){3}$/) 
+  {
+    split($0, ipv4_parts, ".")
 
-  IPv6_flag = false
-  IPv4_flag = false
-
-  # IPv6 validation
-  print $0
-  print length(IPv6_PARTS)
-  print length(IPv4_PARTS)
-
-  if (length(IPv6_PARTS) > 1) {
-    IPv6_flag = true
-
-    print "IPv6 might be"
+    if (ipv4_parts[0] >= 0 && ipv4_parts[0] < 256 \
+        && ipv4_parts[1] >= 0 && ipv4_parts[1] < 256 \
+        && ipv4_parts[2] >= 0 && ipv4_parts[2] < 256 \
+        && ipv4_parts[3] >= 0 && ipv4_parts[3] < 256)
+      print $0
   }
-
-  # IPv4 or IPv6 dual validation 
-  if (length(IPv4_PARTS) == 4) {
-    if (IPv6_flag == true) {
-      print "IPv6 dual might be"
-    } else {
-      print "IPv4 might be"
+   else 
+  {
+    # IPv6 validation
+    if ($0 ~ /^[[:xdigit:]]{0,4}(:[[:xdigit:]]{0,4}){3,7}$/) 
+    {
+        print $0
+    } 
+    else 
+    {
+      # IPv6 dual validation
+      if ($0 ~ /^[[:xdigit:]]{0,4}(:[[:xdigit:]]{0,4}){3,5}:[[:digit:]]{1,3}(\.[[:digit:]]{1,3}){3}$/) 
+      {
+          print $0
+      }
     }
-
-#    for (i in IPv4_PARTS) {
-#      octet = IPv4_PARTS[i]
-
-#      if (octet >=0 && octet < 256) {
-#        print $0
-#      }
-#    }
   }
 }
