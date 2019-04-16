@@ -1,30 +1,34 @@
 #!/usr/bin/awk -f
 
 {
-  # IPv4 validation
-  if ($0 ~ /^[[:digit:]]{1,3}(\.[[:digit:]]{1,3}){3}$/) 
+  for (i = 1; i < NF; i++)
   {
-    split($0, ipv4_parts, ".")
 
-    if (ipv4_parts[0] >= 0 && ipv4_parts[0] < 256 \
-        && ipv4_parts[1] >= 0 && ipv4_parts[1] < 256 \
-        && ipv4_parts[2] >= 0 && ipv4_parts[2] < 256 \
-        && ipv4_parts[3] >= 0 && ipv4_parts[3] < 256)
-      print $0
-  }
-   else 
-  {
-    # IPv6 validation
-    if ($0 ~ /^[[:xdigit:]]{0,4}(:[[:xdigit:]]{0,4}){3,7}$/) 
+    # IPv4 validation
+    if ($i ~ /^[[:digit:]]{1,3}(\.[[:digit:]]{1,3}){3}$/) 
     {
-        print $0
-    } 
+      split($i, ipv4_parts, ".")
+
+      if (ipv4_parts[0] >= 0 && ipv4_parts[0] < 256 \
+          && ipv4_parts[1] >= 0 && ipv4_parts[1] < 256 \
+          && ipv4_parts[2] >= 0 && ipv4_parts[2] < 256 \
+          && ipv4_parts[3] >= 0 && ipv4_parts[3] < 256)
+        print $i
+    }
     else 
     {
-      # IPv6 dual validation
-      if ($0 ~ /^[[:xdigit:]]{0,4}(:[[:xdigit:]]{0,4}){3,5}:[[:digit:]]{1,3}(\.[[:digit:]]{1,3}){3}$/) 
+      # IPv6 validation
+      if ($i ~ /^[[:xdigit:]]{0,4}(:[[:xdigit:]]{0,4}){3,7}$/) 
       {
-          print $0
+          print $i
+      } 
+      else 
+      {
+        # IPv6 dual validation
+        if ($i ~ /^[[:xdigit:]]{0,4}(:[[:xdigit:]]{0,4}){3,5}:[[:digit:]]{1,3}(\.[[:digit:]]{1,3}){3}$/) 
+        {
+            print $i
+        }
       }
     }
   }
