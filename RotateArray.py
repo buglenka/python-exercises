@@ -51,9 +51,21 @@ for e in examples:
     print('Solution 1: {}'.format(', '.join(map(str, d))))
 
     # Solution 2: 
-    nums = e['input']; k = e['k']
+    nums = list(e['input']); k = e['k']
     n = len(nums)
     k = k % n
     nums[:] = nums[n-k:] + nums[:n-k]
 
     print('Solution 2: {}'.format(', '.join(map(str, nums))))
+
+    # Solution 3:
+    nums = list(e['input'])
+    l = len(nums)
+    j = l - k
+    nums[j:l], nums[0:j] = nums[0:j], nums[j:l]
+    print('Solution 3: {}'.format(', '.join(map(str, nums))))
+
+    # Solution 4:
+    nums = list(e['input'])
+    nums = (nums+nums)[l-k:2*l-k]
+    print('Solution 4: {}'.format(', '.join(map(str, nums))))
