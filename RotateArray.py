@@ -61,11 +61,11 @@ for e in examples:
     # Solution 3:
     nums = list(e['input'])
     l = len(nums)
-    j = l - k
+    j = l - k % l
     nums[j:l], nums[0:j] = nums[0:j], nums[j:l]
     print('Solution 3: {}'.format(', '.join(map(str, nums))))
 
     # Solution 4:
     nums = list(e['input'])
-    nums = (nums+nums)[l-k:2*l-k]
+    nums = (nums+nums)[l-(k%l):2*l-(k%l)]
     print('Solution 4: {}'.format(', '.join(map(str, nums))))
