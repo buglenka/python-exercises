@@ -47,11 +47,12 @@ rotate the input matrix in-place such that it becomes:
 
 from typing import List
 
-input = [
+input = input2 = [
   [ 1, 2, 3, 4],
   [ 5, 6, 7, 8],
   [ 9,10,11,12],
   [13,14,15,16]
+
 ]
 
 def rotate(matrix: List[List[int]]) -> None:
@@ -77,8 +78,22 @@ def rotate(matrix: List[List[int]]) -> None:
 
             matrix[to_x][to_y] = last_transition_value
 
+def rotate2(matrix: List[List[int]]) -> None:
+    n = len(matrix)
+    a = 0
+    b = n-1
+
+    while(a < b):
+        for i in range (b - a):
+            matrix[a][a+i], matrix[a+i][b] = matrix[a+i][b], matrix[a][a+i]
+            matrix[a][a+i], matrix[b][b-i] = matrix[b][b-i], matrix[a][a+i]
+            matrix[a][a+i], matrix[b-i][a] = matrix[b-i][a], matrix[a][a+i]
+        a += 1
+        b -= 1
+
 
 rotate(input)
+rotate2(input2)
 
 
 
