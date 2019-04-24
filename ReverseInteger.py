@@ -27,40 +27,39 @@ For the purpose of this problem, assume that your function returns 0 when
 the reversed integer overflows.
 """
 
+import math
+
 def reverse(x):
     """
     :type x: int
     :rtype: int
     """
-    if (x == 0) or (x < -2**31) or (x > 2**31): 
+    if (abs(x) < 10):
+        return x
+
+    n = abs(x)
+
+    digits = []
+    tens_power = int(math.log(n, 10))
+
+    for i in range(tens_power, -1, -1):
+        p = 10**i
+        div = n // p
+        n = n % p
+
+    digits.append(div)
+
+    n = 0
+    for i in range(tens_power+1):
+        n += digits[i] * 10**i
+
+    if x < 0:
+        n = -n
+
+    if (n < -2147483648 or n > 2147483647):
         return 0
-        
-    divisor = 10
-    sign = x < 0;
-        
-    if (sign):
-        x = -x
-        
-    rems = []
-    while(x != 0):
-        digit = int(x % divisor)
-        x = int(x /divisor)
-            
-        rems.append(digit)
-        
-    result = rems.pop()
-    i = 0
-    while(len(rems) != 0):
-        i += 1
-        result += rems.pop() * (divisor**i)
-            
-    if (result > 2**31): 
-        return 0
-            
-    if (sign):
-        return -result
-    else:
-        return result
+
+    return n
 
 
 print(reverse(-123))
