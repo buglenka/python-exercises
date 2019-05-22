@@ -26,6 +26,8 @@ Explanation: There are three ways to climb to the top.
 3. 2 steps + 1 step
 """
 
+from typing import List
+
 def climbStairs(n: int) -> int:
     if (n == 1):
         return 1
@@ -39,6 +41,59 @@ def climbStairs(n: int) -> int:
 
     return dp[n]
 
+def climbStairs123(n: int) -> int:
+    """Recursion
+    """
+    def steps(n: int) -> int:
+        if (n == 0):
+            return 1
+        elif (n < 0):
+            return 0
+
+        c = steps(n-1)
+        c += steps(n-2)
+        c += steps(n-3)
+
+        return c
+
+    return steps(n)
+
+def climbStairs123dp(n: int) -> int:
+    """Dynamic Programming:
+
+    Bottom-Up Solution
+    """
+    dp = [0]*(n)
+    dp[0] = 1
+    dp[1] = 1
+    dp[2] = 2
+
+    for i in range(3, n):        
+        dp[i] = sum(dp[i-3:i])
+
+    return sum(dp[n-3:n])
+
+def climbStairs123memo(n: int) -> int:
+    """Dynamic Programming:
+
+    Top-Down Solution
+    """
+    def steps(N: int, memo: List[int]) -> int:
+        if (N == n):
+            return 1
+        elif (N > n):
+            return 0
+        elif (memo[N] == -1):
+            memo[N] = steps(N+1, memo) + \
+                        steps(N+2, memo) + \
+                            steps(N+3, memo)
+
+        return memo[N]
+
+    memo = [-1]*n
+
+    return steps(0, memo)
+
 n = 4
 
-print(climbStairs(n))
+print(climbStairs123memo(n))
